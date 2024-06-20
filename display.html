@@ -1,0 +1,327 @@
+<html lang="en">
+  <head>
+    <title>Codeboard Screecast Viewer</title>
+  </head>
+  <body style="background: linear-gradient(45deg, #7b0909, #6771b8b8)">
+    <a id="downloadLink" href="#" style="display: none;">Download ZIP</a>
+    <input type="file" id="fileInput" multiple>
+    <button id="sendButton">Send</button>
+
+    <input type="text" id="keys" style="margin-left: 20vw;">
+    <input type="submit" id="submit"><br>
+    <button id="enter" style="margin-left: 50vw;">enter</button>
+    <button id="backspace">backspace</button>
+    <button id="space">space</button>
+    
+    <img
+      id="img"
+      style="
+        touch-action: manipulation;
+        touch-action: none;
+        width: 1920px;
+        height: 1080px;
+        margin-top: 2%;
+        margin-left: 5%;
+      "
+    />
+    <div
+      id="touchArea"
+      style="width: 200px; height: 200px; background-color: lightgray"
+    >
+      Touch and hold here
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"
+      crossorigin="anonymous"
+    ></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <p id="demo"></p>
+    
+    <script>
+      window.onload = function () {
+        let room = prompt("Please enter room ID : ");
+        if (room.trim().length == 0) {
+          document.write("<h1> Room ID is mandatory to join </h1>");
+          return;
+        }
+
+        let socket = io();
+
+        socket.emit("join-message", room);
+        socket.on("screen-data", function (message) {
+          $("img").attr("src", message);
+        });
+/////////////////
+        document.getElementById("submit").addEventListener("click", function() {
+            var str = document.getElementById("keys").value;
+
+            document.getElementById("touchArea").innerHTML=str
+            console.log("Password Input:", str);
+
+            obj = { type : str, room: room };
+            socket.emit("type", JSON.stringify(obj));
+        });
+        document.getElementById("enter").addEventListener("click", function() {
+           var obj = { key: "enter", room: room };
+           socket.emit("key-down", JSON.stringify(obj));
+           socket.emit("key-up", JSON.stringify(obj));
+        });
+        document.getElementById("backspace").addEventListener("click", function() {
+          var obj = { key: "backspace", room: room };
+           socket.emit("key-down", JSON.stringify(obj));
+           socket.emit("key-up", JSON.stringify(obj));
+        });
+        document.getElementById("space").addEventListener("click", function() {
+          var obj = { key: "space", room: room };
+           socket.emit("key-down", JSON.stringify(obj));
+           socket.emit("key-up", JSON.stringify(obj));
+        });
+///////////
+        $("img").mousemove(function (e) {
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = e.pageX - posX;
+          var y = e.pageY - posY;
+
+          var obj = { x: x, y: y, room: room };
+          if (x % 2 < 1 && y % 2 < 1)
+            socket.emit("mouse-move", JSON.stringify(obj));
+        });
+
+
+
+        $("img").on("mousedown", function (e) {
+          e.preventDefault(); // Prevent default touch behavior
+          
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = e.pageX - posX;
+          var y = e.pageY - posY;
+
+          obj = { x: x, y: y, room: room };
+                 
+          if(e.button==0)
+            socket.emit("mouse-down", JSON.stringify(obj));
+          else
+            socket.emit("mouse-r-click", JSON.stringify(obj));
+        });
+
+        $("img").on("mouseup", function (e) {
+          e.preventDefault(); // Prevent default touch behavior
+
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = e.pageX - posX;
+          var y = e.pageY - posY;
+
+          obj = { x: x, y: y, room: room };
+                      
+          socket.emit("mouse-up", JSON.stringify(obj));
+        });        
+
+
+        $(window).bind("keyup", function (e) {
+          // e.preventDefault(); // Prevent default touch behaviorsssass
+          var obj = { key: e.key, room: room };
+          socket.emit("key-up", JSON.stringify(obj));
+        });
+        $(window).bind("keydown", function (e) {
+          // e.preventDefault(); // Prevent default touch behavior
+          var obj = { key: e.key, room: room };
+          socket.emit("key-down", JSON.stringify(obj));
+        });
+
+        /////// touch /////////
+
+        $("img").on("touchmove", function (e) {
+          e.preventDefault(); // Prevent default touch behavior
+
+          var obj = { room: room };
+
+          var touch = e.touches[0];
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = touch.pageX - posX;
+          var y = touch.pageY - posY;
+
+          obj = { x: x, y: y, room: room };
+          document.getElementById("demo").innerHTML = x + ", " + y;
+          console.log(x % 2 < 1 && y % 2 < 1);
+          if (x % 2 < 1 && y % 2 < 1)
+            socket.emit("mouse-move", JSON.stringify(obj));
+        });
+
+        //2,3-touch
+
+        const touchArea = document.getElementById("img");
+        const touchArea1 = document.getElementById("touchArea");
+        let touchCount = 0;
+        let touchTimeout;
+
+        function resetTouchCount() {
+          touchCount = 0;
+        }
+
+        touchArea.addEventListener("touchstart", function (event) {
+          var touch = event.touches[0];
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = touch.pageX - posX;
+          var y = touch.pageY - posY;
+
+          var obj = { x: x, y: y, room: room };
+          clearTimeout(touchTimeout);
+          touchCount++;
+
+          if (touchCount === 2) {
+            touchTimeout = setTimeout(() => {
+              if (touchCount === 2) {
+                touchArea1.innerHTML = 2;
+                console.log("Double click detected");
+                socket.emit("mouse-click", JSON.stringify(obj));
+                socket.emit("mouse-click", JSON.stringify(obj));
+              }
+              resetTouchCount();
+            }, 300);
+          } else if (touchCount === 3) {
+            touchArea1.innerHTML = 3;
+            console.log("Triple click detected");
+            socket.emit("mouse-down", JSON.stringify(obj));
+            resetTouchCount();
+          } else if (touchCount === 1) {
+            touchArea1.innerHTML = 1;
+            console.log("one click detected");
+            socket.emit("mouse-click", JSON.stringify(obj));
+          }
+
+          // Prevent the default touchstart behavior
+          event.preventDefault();
+        });
+
+        touchArea.addEventListener("touchend", function () {
+          var obj = { room: room };
+          socket.emit("mouse-up", JSON.stringify(obj));
+          touchTimeout = setTimeout(resetTouchCount, 300); // Adjust the delay as needed
+        });
+
+        //hold
+
+        let touchHoldTimeout;
+        let touchStartPosition;
+
+        function handleTouchHold(obj) {
+          touchArea1.innerHTML = "hold";
+          socket.emit("mouse-r-click", JSON.stringify(obj));
+          console.log("Touch and hold detected", obj.x);
+        }
+
+        touchArea.addEventListener("touchstart", function (event) {
+          var touch = event.touches[0];
+          var posX = $(this).offset().left;
+          var posY = $(this).offset().top;
+
+          var x = touch.pageX - posX;
+          var y = touch.pageY - posY;
+
+          var obj = { x: x, y: y, room: room };
+
+          clearTimeout(touchHoldTimeout);
+          touchStartPosition = event.touches[0].clientX; // Record the initial touch position
+          touchHoldTimeout = setTimeout(function () {
+            handleTouchHold(obj);
+          }, 1000);
+
+          // Prevent the default touchstart behavior
+          event.preventDefault();
+        });
+
+        touchArea.addEventListener("touchmove", function (event) {
+          const touchCurrentPosition = event.touches[0].clientX;
+          const touchMovement = Math.abs(
+            touchCurrentPosition - touchStartPosition
+          );
+
+          if (touchMovement > 20) {
+            // Adjust the threshold as needed
+            touchArea1.innerHTML = "";
+            clearTimeout(touchHoldTimeout);
+          }
+
+          event.preventDefault();
+        });
+
+        touchArea.addEventListener("touchend", function () {
+          clearTimeout(touchHoldTimeout);
+        });
+      
+
+
+
+
+      //filerecive
+      socket.on("files-shear", function (base64ZipContent) {
+        const downloadLink = document.getElementById('downloadLink');
+                        // Set the href attribute of the download link
+                        downloadLink.href = `data:application/zip;base64,${base64ZipContent}`;
+                downloadLink.download = 'convertedfiles.zip';
+                downloadLink.style.display = 'block';
+        });
+
+
+
+
+//filesend
+
+            
+const fileInput = document.getElementById('fileInput');
+const sendButton = document.getElementById('sendButton');
+
+sendButton.addEventListener('click', () => {
+    const files = fileInput.files;
+    if (files.length > 0) {
+        const fileDataArray = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = event => {
+                const content = event.target.result.split(',')[1];
+                const fileData = {
+                    name: file.name,
+                    content: content
+                };
+                fileDataArray.push(fileData);
+
+                if (fileDataArray.length === files.length) {
+                    var obj = { room: room , fileDataArray: fileDataArray};
+
+                    socket.emit("files", JSON.stringify(obj));
+                    console.log(`Sent ${fileDataArray.length} files`);
+                }                      
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+});
+
+
+
+      };
+    </script>
+
+    <script type="text/javascript">
+      function myGeeks() {
+        document.getElementById("img").draggable = false;
+      }
+      document.addEventListener("contextmenu", (event) =>
+        event.preventDefault()
+      );
+    </script>
+  </body>
+</html>
